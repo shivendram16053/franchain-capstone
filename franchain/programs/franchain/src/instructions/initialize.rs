@@ -6,8 +6,8 @@ pub struct Initialize<'info>{
     #[account(mut)]
     pub franchisor : Signer<'info>,
 
-    #[account(mut)]
-    pub franchisee : Signer<'info>,
+    ///CHECK : This is the franchisee account, and we assume it's correct because it will be passed by the franchisor from the frontend.
+    pub franchisee : AccountInfo<'info>,
 
     #[account(
         init,

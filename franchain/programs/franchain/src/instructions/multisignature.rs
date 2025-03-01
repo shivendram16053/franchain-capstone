@@ -5,24 +5,26 @@ use crate::{error::FranchainError, state::{ Agreement, MultiSig, Vault}};
 
 #[derive(Accounts)]
 pub struct MultiSignature<'info>{
-    #[account(mut)]
-    pub franchisor : Signer<'info>,
-
+    
     #[account(mut)]
     pub franchisee : Signer<'info>,
+
+
+    /// CHECK: This is the franchisor account, and we assume it's correct because it is used to initialize the multisig.
+    pub franchisor : AccountInfo<'info>,
 
     pub usdt_mint : Account<'info,Mint>,
     
     #[account(
         mut,
         seeds = [b"multisig",franchisor.key().as_ref(),franchisee.key().as_ref()],
-        bump 
+        bump = multisig_pda.multisig_bump
     )]
     pub multisig_pda : Account<'info,MultiSig>,
 
     #[account(
         init,
-        payer = franchisor,
+        payer = franchisee,
         space = 8+Vault::INIT_SPACE,
         seeds = [b"vaults",franchisor.key().as_ref(),franchisee.key().as_ref()],
         bump
@@ -31,7 +33,7 @@ pub struct MultiSignature<'info>{
 
     #[account(
         init,
-        payer = franchisor,
+        payer = franchisee,
         space = 8+Agreement::INIT_SPACE,
         seeds = [b"agreement",franchisor.key().as_ref(),franchisee.key().as_ref()],
         bump
@@ -74,9 +76,9 @@ impl<'info> MultiSignature<'info>{
         contract_start:i128, 
         contract_duration:u64, 
         dispute_resolution:String, 
-        status:String, 
         vault_bump:u8,
-        agreement_bump:u8   
+        agreement_bump:u8,
+        vault_status:String 
     
     )-> Result<()>{
 
@@ -85,6 +87,10 @@ impl<'info> MultiSignature<'info>{
 
         if multisig_pda.approved_by.contains(&franchisee) {
             return Err(error!(FranchainError::AlreadyApproved));
+        }
+
+        if multisig_pda.is_signed==true {
+            return Err(error!(FranchainError::AlreadySigned));
         }
 
         multisig_pda.approved_by.push(franchisee);
@@ -98,9 +104,9 @@ impl<'info> MultiSignature<'info>{
                 contract_start, 
                 contract_duration, 
                 dispute_resolution, 
-                status, 
                 vault_bump,
-                agreement_bump
+                agreement_bump,
+                vault_status
             )?;
         }        
         Ok(())
@@ -114,9 +120,9 @@ impl<'info> MultiSignature<'info>{
         contract_start:i128,
         contract_duration:u64,
         dispute_resolution:String,
-        status:String,
         vault_bump:u8,
         agreement_bump:u8,
+        vault_status:String
     
     )-> Result<()>{
 
@@ -131,13 +137,14 @@ impl<'info> MultiSignature<'info>{
             franchisor_share, 
             franchisee_share,
             multisig: self.multisig_pda.key(),
-            vault_bump
+            vault_bump,
+            vault_status
         });
 
 
         self.agreement_pda.set_inner(Agreement { franchisor: self.franchisor.key(), 
             franchisee: self.franchisee.key(),  
-            vault : self.vault_ata.key(),
+            vault : self.vault_pda.key(),
             multisig:self.multisig_pda.key(),         
             initial_fee ,        
             contract_start,       
@@ -145,8 +152,10 @@ impl<'info> MultiSignature<'info>{
             franchisor_share,
             franchisee_share,     
             dispute_resolution,
-            status,
+            status:"active".to_string(),
             agreement_bump,
+            franchisee_approved:false,
+            franchisor_approved:false
         });
 
         let cpi_program = self.token_program.to_account_info();

@@ -17,5 +17,7 @@ pub struct Agreement {
     pub dispute_resolution: String,
     #[max_len(10)]
     pub status: String,
-    pub agreement_bump: u8,              
+    pub agreement_bump: u8, 
+    pub franchisor_approved: bool,
+    pub franchisee_approved: bool,              
 }

@@ -7,5 +7,12 @@ pub use multisignature::*;
 pub mod agreement;
 pub use agreement::*;
 
-// pub mod vault;
-// pub use vault::*;
+pub mod vault_deposit;
+pub use vault_deposit::*;
+
+pub mod vault_withdraw;
+pub use vault_withdraw::*;
+
+pub mod vault_config;
+pub use vault_config::*;
+

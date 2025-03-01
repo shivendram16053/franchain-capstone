@@ -12,4 +12,6 @@ pub enum FranchainError{
     Overflow,
     #[msg("Mathematical underflow.")]
     Underflow,
+    #[msg("Multisig already signed.")]
+    AlreadySigned,
 }

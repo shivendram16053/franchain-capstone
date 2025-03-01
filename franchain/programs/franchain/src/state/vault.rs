@@ -10,5 +10,7 @@ pub struct Vault {
     pub franchisee_share: u8,
     pub multisig: Pubkey,
     pub vault_bump :u8,
+    #[max_len(10)]
+    pub vault_status :String,
 }
 
