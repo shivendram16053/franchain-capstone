@@ -60,10 +60,6 @@ pub mod franchain {
         )
     }
 
-    pub fn agreement(ctx: Context<AgreementFunc>) -> Result<()> {
-        ctx.accounts.terminate_agreement()
-    }
-
     pub fn deposit_funds_vault(ctx: Context<VaultDeposit>, amount: u64) -> Result<()> {
         ctx.accounts.deposit_funds(amount)
     }
@@ -78,4 +74,8 @@ pub mod franchain {
     pub fn restart_vault(ctx: Context<VaultConfig>) -> Result<()> {
         ctx.accounts.restart_vault()
     }
+    pub fn agreement(ctx: Context<AgreementFunc>) -> Result<()> {
+        ctx.accounts.terminate_agreement()
+    }
+
 }
