@@ -13,6 +13,7 @@ import { useMemo } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Navbar from "@/components/Navbar";
+import { UserProvider } from "@/hooks/useAuth";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -43,14 +44,16 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} antialiased bg-gradient-to-b from-black to-gray-900`}
       >
-        {" "}
+
         <ConnectionProvider endpoint={endpoint}>
           <WalletProvider wallets={wallets} autoConnect>
             <WalletModalProvider>
-              <Navbar/>
-              {children}
+              <UserProvider>
+                <Navbar/>
+                {children}
+              </UserProvider>
             </WalletModalProvider>
           </WalletProvider>
         </ConnectionProvider>

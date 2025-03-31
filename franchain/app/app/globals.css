@@ -1,8 +1,6 @@
 @import "tailwindcss";
 @plugin "tailwindcss-animate";
 
-@custom-variant dark (&:is(.dark *));
-
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -45,74 +43,44 @@
 
 :root {
   --radius: 0.625rem;
-  --background: #000; /* Default black background */
-  --foreground: #fff; /* Default white text */
-  --card: #000;
-  --card-foreground: #fff;
-  --popover: #000;
-  --popover-foreground: #fff;
-  --primary: #222;
+  --background: linear-gradient(to bottom, black, #1f2937);
+  --foreground: #ffffff;
+  --card: #f8f8f8;
+  --card-foreground: #000;
+  --popover: #f8f8f8;
+  --popover-foreground: #000;
+  --primary: #4caf50;
   --primary-foreground: #fff;
-  --secondary: #333;
+  --secondary: #66bb6a;
   --secondary-foreground: #fff;
-  --muted: #444;
-  --muted-foreground: #bbb;
-  --accent: #555;
+  --muted: #e8f5e9;
+  --muted-foreground: #2e7d32;
+  --accent: #81c784;
   --accent-foreground: #fff;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: #222;
-  --input: #222;
-  --ring: #666;
+  --border: #ddd;
+  --input: #ddd;
+  --ring: #81c784;
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: #000;
-  --sidebar-foreground: #fff;
-  --sidebar-primary: #222;
-  --sidebar-primary-foreground: #fff;
-  --sidebar-accent: #333;
-  --sidebar-accent-foreground: #fff;
-  --sidebar-border: #444;
-  --sidebar-ring: #666;
+  --sidebar: #f8f8f8;
+  --sidebar-foreground: #000;
+  --sidebar-primary: #e8f5e9;
+  --sidebar-primary-foreground: #2e7d32;
+  --sidebar-accent: #c8e6c9;
+  --sidebar-accent-foreground: #2e7d32;
+  --sidebar-border: #ddd;
+  --sidebar-ring: #81c784;
 }
 
 .dark {
-  --background: #000; /* Ensure dark mode keeps the black background */
-  --foreground: #fff; /* Ensure dark mode keeps white text */
-  --card: #111;
-  --card-foreground: #fff;
-  --popover: #111;
-  --popover-foreground: #fff;
-  --primary: #222;
-  --primary-foreground: #fff;
-  --secondary: #333;
-  --secondary-foreground: #fff;
-  --muted: #444;
-  --muted-foreground: #bbb;
-  --accent: #555;
-  --accent-foreground: #fff;
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: #222;
-  --input: #222;
-  --ring: #666;
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: #111;
-  --sidebar-foreground: #fff;
-  --sidebar-primary: #222;
-  --sidebar-primary-foreground: #fff;
-  --sidebar-accent: #333;
-  --sidebar-accent-foreground: #fff;
-  --sidebar-border: #444;
-  --sidebar-ring: #666;
+  --background: linear-gradient(to bottom, black, #1f2937);
+  --foreground: #ffffff;
 }
 
-/* Ensure body always has black background and white text */
 @layer base {
   * {
     @apply border-border outline-ring/50;
@@ -122,4 +90,50 @@
   }
 }
 
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-primary-foreground px-4 py-2 rounded-md shadow hover:bg-green-600;
+  }
+}
 
+.wallet-adapter-button:not([disabled]):hover {
+  background-color: #008c05;
+  color: white;
+}
+
+.wallet-adapter-button-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 5%;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease-in-out, color 0.2s ease-in-out;
+  outline: none;
+  box-shadow: inset 0px 1px 2px rgba(0, 0, 0, 0.05);
+  background-color: rgba(79, 226, 6, 0.985);
+  color: black;
+  height: 2.25rem;
+  padding: 0.8rem 1.5rem;
+}
+
+.wallet-adapter-button-trigger:hover {
+  background-color: #41f600e2;
+  color: black;
+}
+
+.wallet-adapter-button-trigger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 1px rgba(209, 213, 219, 1);
+}
+
+.wallet-adapter-button-trigger:disabled {
+  pointer-events: none;
+  opacity: 0.5;
+}
+
+@media (min-width: 768px) {
+  .wallet-adapter-button-trigger {
+    height: 2.5rem;
+  }
+}
