@@ -67,10 +67,7 @@ const Navbar = () => {
           {/* Logo */}
           <div className="flex items-center">
             <Link href="/" className="flex items-center gap-2">
-              <Globe className="h-6 w-6 text-green-400" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-green-400 to-emerald-600 text-xl font-bold">
-                FranChain
-              </span>
+              <img src="/logo.png" alt="logo" className="h-10" />
             </Link>
           </div>
 

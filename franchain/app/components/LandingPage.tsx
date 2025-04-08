@@ -251,10 +251,9 @@ const Landing = () => {
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center mb-6 md:mb-0">
-              <Globe className="w-6 h-6 text-green-400 mr-2" />
-              <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-600">
-                Franchain
-              </span>
+            <Link href="/" className="flex items-center gap-2">
+              <img src="/logo.png" alt="logo" className="h-10" />
+            </Link>
             </div>
 
             <div className="flex gap-8 text-gray-400">
