@@ -15,7 +15,7 @@ import {
     ASSOCIATED_TOKEN_PROGRAM_ID,
   } from "@solana/spl-token";
   import bs58 from "bs58";
-  import { NextResponse } from "next/server";
+  import { NextRequest, NextResponse } from "next/server";
   
   const connection = new Connection("https://api.devnet.solana.com");
   
@@ -28,7 +28,7 @@ import {
   
   const usdtMint = new PublicKey("FwaBLXJPVsCYKJLbD1rz3tPWBnL129M2yRqM1Pe1KfQ");
   
-  export async function POST(req: Request) {
+  export async function POST(req: NextRequest) {
     try {
       const body = await req.json();
       const { recipient } = body;
