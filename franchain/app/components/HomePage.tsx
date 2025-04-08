@@ -234,7 +234,7 @@ const HomePage = () => {
                     </div>
                     <div className="flex items-center text-gray-300">
                       <Tag className="h-4 w-4 mr-2 text-green-400" />
-                      <span>Initial Fee: {Number.parseFloat(agreement.initial_fee).toLocaleString()} SOL</span>
+                      <span>Initial Fee: {Number.parseFloat(agreement.initial_fee).toLocaleString()} USDC</span>
                     </div>
                     <div className="flex items-center text-gray-300">
                       <Wallet className="h-4 w-4 mr-2 text-green-400" />

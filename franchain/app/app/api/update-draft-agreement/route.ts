@@ -5,9 +5,7 @@ export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
         const { 
-            id, 
-            franchisee,
-            franchisee_email
+            id,
         } = body;
 
         if (!id) {
@@ -25,11 +23,16 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ message: "Agreement not found" }, { status: 404 });
         }
 
+        const franchisor_share = existingAgreement.franchisor_share;
+        const franchisee_share = 100 - franchisor_share
         // Update agreement
         const { data, error } = await supabase
             .from("agreements")
             .update({
-                franchisee:franchisee,franchisee_email:franchisee_email,franchisor_approved:true,
+                franchisee_share:franchisee_share,
+                franchisee_approved :true,
+                status:"active",
+                
             })
             .eq("id", id)
             .select();

@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 import jwt from "jsonwebtoken";
-import cookie from "cookie";
 
 
 
-export async function POST(req: Request,res:Response) {
+export async function POST(req: Request) {
   try {
     const body = await req.json();
     const { username, email,wallet } = body;

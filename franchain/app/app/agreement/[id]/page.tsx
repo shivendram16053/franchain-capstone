@@ -19,6 +19,7 @@ import {
   Mail,
   Share2,
   Pen,
+  Check,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -30,10 +31,12 @@ import { Skeleton } from "@/components/ui/skeleton"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { useConnection, useWallet } from "@solana/wallet-adapter-react"
 import Link from "next/link"
-import { clusterApiUrl, Connection, PublicKey } from "@solana/web3.js"
+import { clusterApiUrl, Connection, PublicKey, Transaction } from "@solana/web3.js"
 import * as anchor from "@coral-xyz/anchor"
 import { AnchorWallet } from "@solana/wallet-adapter-react";
 import idl from "@/idl/franchain.json";
+import * as spltoken from "@solana/spl-token";
+import { toast } from "sonner" // Update the path to the correct location
 
 const idl_string = JSON.stringify(idl);
 const idl_object: anchor.Idl = JSON.parse(idl_string);
@@ -69,6 +72,18 @@ export default function AgreementPage() {
   const [walletAddress, setWalletAddress] = useState("")
   const [email, setEmail] = useState("")
   const connection = useConnection();
+  const usdt_mint = new PublicKey("FwaBLXJPVsCYKJLbD1rz3tPWBnL129M2yRqM1Pe1KfQ")
+
+
+  // Button states
+  const [createMultisigLoading, setCreateMultisigLoading] = useState(false)
+  const [createMultisigSuccess, setCreateMultisigSuccess] = useState(false)
+  const [approveMultisigLoading, setApproveMultisigLoading] = useState(false)
+  const [approveMultisigSuccess, setApproveMultisigSuccess] = useState(false)
+  const [getTokenLoading, setGetTokenLoading] = useState(false)
+  const [getTokenSuccess, setGetTokenSuccess] = useState(false)
+  const [getTokenTxId, setGetTokenTxId] = useState("")
+
 
   useEffect(() => {
     if (!id) return
@@ -107,22 +122,23 @@ export default function AgreementPage() {
     )
     : null;
 
-    if(!provider)return;
+  if (!provider) return;
 
-  const program = new anchor.Program(idl_object,provider)
+  const program = new anchor.Program(idl_object, provider)
 
   const handleCreateMultisig = async () => {
     if (!agreement || !wallet.publicKey || !walletAddress || !program) return;
-  
+
     try {
-      setLoading(true);
-  
+      setCreateMultisigLoading(true);
+      setCreateMultisigSuccess(false);
+
       // 1. Prepare accounts and parameters
       const franchisor = wallet.publicKey;
       const franchisee = new PublicKey(walletAddress);
       const initialFee = new anchor.BN(Math.round(parseFloat(agreement.initial_fee) * 1e9)); // Convert to lamports
       const threshold = 2;
-  
+
       // 2. Generate PDA
       const seeds = [
         anchor.utils.bytes.utf8.encode('multisig'),
@@ -130,7 +146,7 @@ export default function AgreementPage() {
         franchisee.toBuffer(),
       ];
       const [multisigPda, multisigBump] = await PublicKey.findProgramAddress(seeds, program.programId);
-  
+
       // 3. Build the instruction
       const tx = await program.methods
         .initialize(
@@ -150,12 +166,12 @@ export default function AgreementPage() {
           systemProgram: anchor.web3.SystemProgram.programId,
         })
         .transaction();
-  
+
       // 4. Get recent blockhash and set it on the transaction
       const { blockhash } = await connectioncli.getLatestBlockhash();
       tx.recentBlockhash = blockhash;
       tx.feePayer = wallet.publicKey;
-  
+
       // 5. Sign and send the transaction
       if (!wallet.signTransaction) {
         throw new Error("Wallet does not support signing transactions");
@@ -163,43 +179,266 @@ export default function AgreementPage() {
       const signedTx = await wallet.signTransaction(tx);
       const rawTransaction = signedTx.serialize();
       const txId = await connectioncli.sendRawTransaction(rawTransaction);
-  
+
       // 6. Confirm transaction
       const confirmation = await connectioncli.confirmTransaction({
         signature: txId,
         blockhash,
         lastValidBlockHeight: (await connectioncli.getBlockHeight()) + 150, // ~1 minute timeout
       });
-  
+
       if (confirmation.value.err) {
         throw new Error("Transaction failed");
       }
-  
-      // 7. Update backend
-      const response = await fetch("/api/update-franchisee", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          id, 
-          franchisee: franchisee.toBase58(),
-          franchisee_email: email 
-        }),
-      });
-  
-      if (!response.ok) throw new Error("Failed to update DB");
-      
-      router.push("/profile");
+
+      if (confirmation) {
+        // 7. Update backend
+        const response = await fetch("/api/update-franchisee", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            id,
+            franchisee: franchisee.toBase58(),
+            franchisee_email: email
+          }),
+        });
+
+        if (!response.ok) throw new Error("Failed to update DB");
+      }
+
+      setCreateMultisigSuccess(true);
+
+      toast("Multisig created successfully. Transaction ID: " + txId, {
+        description: "You can view the transaction on Solscan.",
+        action: {
+          label: "Copy TX",
+          onClick: () => navigator.clipboard.writeText(txId),
+        },
+      })
+
+      // Redirect after a short delay to show success state
+      setTimeout(() => {
+        router.push("/profile");
+      }, 2000);
+
     } catch (err: any) {
       setError('Failed to create multisig: ' + err.message);
       console.error(err);
+      toast("Failed to create multisig", {
+        description: err.message,
+      })
     } finally {
-      setLoading(false);
+      setCreateMultisigLoading(false);
     }
   };
 
-  const handleApproveMultisif = async ()=>{
-    
+  const handleApproveMultisig = async () => {
+    if (!agreement || !wallet.publicKey || !program) return;
+
+    try {
+      setApproveMultisigLoading(true);
+      setApproveMultisigSuccess(false);
+
+      // 1. Prepare accounts and parameters
+      const franchisor = new PublicKey(agreement.franchisor);
+      const franchisee = wallet.publicKey;
+
+      const franchisor_share = Number(agreement.franchisor_share); // u8
+      const franchisee_share = Number(100 - Number(agreement.franchisor_share)); // u8
+      const initial_fee = new anchor.BN(agreement.initial_fee); // u64
+      const contract_start = new anchor.BN(Math.floor(Date.now() / 1000)); // i128 (Unix Timestamp)
+      const contract_duration = new anchor.BN(agreement.contract_duration); // u64
+      const dispute_resolution = agreement.dispute_resolution.toString(); // String
+      const vault_status = "active"; // String
+
+      const [multisigPda, multisigBump] = PublicKey.findProgramAddressSync(
+        [Buffer.from("multisig"), franchisor.toBuffer(), franchisee.toBuffer()],
+        program.programId
+      );
+
+      const [vault_pda, vault_bump] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vaults"), franchisor.toBuffer(), franchisee.toBuffer()],
+        program.programId
+      );
+
+      const [agreement_pda, agreement_bump] = PublicKey.findProgramAddressSync(
+        [Buffer.from("agreement"), franchisor.toBuffer(), franchisee.toBuffer()],
+        program.programId
+      );
+
+      const transaction = new Transaction();
+
+      async function getOrCreateATA(owner: PublicKey) {
+        const isPDA = PublicKey.isOnCurve(owner.toBuffer()) === false;
+      
+        const ata = await spltoken.getAssociatedTokenAddress(
+          usdt_mint,
+          owner,
+          isPDA,
+          spltoken.TOKEN_PROGRAM_ID // 👈 Pass explicitly
+        );
+      
+        const accountInfo = await connectioncli.getAccountInfo(ata);
+      
+        if (!accountInfo) {
+          console.log(`Creating ATA for: ${owner.toBase58()}`);
+          transaction.add(
+            spltoken.createAssociatedTokenAccountInstruction(
+              wallet.publicKey!,
+              ata,
+              owner,
+              usdt_mint,
+              spltoken.TOKEN_PROGRAM_ID // 👈 Must also be passed here!
+            )
+          );
+        }
+      
+        return ata;
+      }
+      
+
+      // 1. Create ATAs if they don't exist
+      if (!wallet.publicKey) {
+        throw new Error("Wallet public key is null");
+      }
+      const franchiseeAta = await getOrCreateATA(franchisee);
+      const franchisorAta = await getOrCreateATA(franchisor);
+      const vaultAta = await getOrCreateATA(vault_pda); // Vault also needs an ATA
+
+      // 2. Create multisig instruction
+      const multisigIx = await program.methods
+        .multisig(
+          franchisor_share,
+          franchisee_share,
+          initial_fee,
+          contract_start,
+          contract_duration,
+          dispute_resolution,
+          vault_bump,
+          agreement_bump,
+          vault_status
+        )
+        .accounts({
+          franchisor,
+          franchisee,
+          usdtMint: usdt_mint,
+          multisigPda,
+          vaultPda: vault_pda,
+          agreementPda: agreement_pda,
+          vaultAta: vaultAta,
+          franchisorAta: franchisorAta,
+          franchiseeAta: franchiseeAta,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+          associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+        })
+        .instruction();
+
+      transaction.add(multisigIx);
+
+      // 3. Get latest blockhash
+      const { blockhash } = await connectioncli.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = wallet.publicKey;
+
+      // 4. Sign and send transaction
+      if (!wallet.signTransaction) {
+        throw new Error("Wallet does not support signing transactions");
+      }
+      const signedTx = await wallet.signTransaction(transaction);
+      const txId = await connectioncli.sendRawTransaction(signedTx.serialize());
+
+      // 5. Confirm transaction
+      await connectioncli.confirmTransaction({
+        signature: txId,
+        blockhash,
+        lastValidBlockHeight: (await connectioncli.getBlockHeight()) + 150, // ~1 minute timeout
+      });
+
+      console.log("Transaction Sent:", txId);
+      // 7. Update backend
+      const response = await fetch("/api/update-draft-agreement", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+        }),
+      });
+
+      if (!response.ok) throw new Error("Failed to update DB");
+
+      setApproveMultisigSuccess(true);
+      toast("Agreement approved!", {
+        description: "Transaction ID: " + txId,
+        action: {
+          label: "Copy TX",
+          onClick: () => navigator.clipboard.writeText(txId),
+        },
+      })
+
+      // Redirect after a short delay to show success state
+      setTimeout(() => {
+        router.push("/profile");
+      }, 2000);
+
+    } catch (err: any) {
+      setError('Failed to approve multisig: ' + err.message);
+      console.error(err);
+      toast("Failed to approve multisig", {
+        description: err.message,
+      })
+      
+    } finally {
+      setApproveMultisigLoading(false);
+    }
   }
+
+  const getToken = async () => {
+    try {
+      setGetTokenLoading(true);
+      setGetTokenSuccess(false);
+
+      if (!wallet.publicKey) {
+        throw new Error("Wallet not connected");
+      }
+
+      const response = await fetch("/api/send-token", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recipient: wallet.publicKey.toBase58(), // send recipient wallet address
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Something went wrong");
+      }
+
+      setGetTokenSuccess(true);
+      setGetTokenTxId(result.txid);
+      console.log("Token sent! Transaction ID:", result.txid);
+      toast("1000 USDT sent to your wallet!", {
+        description: "Transaction ID: " + result.txid,
+        action: {
+          label: "Copy TX",
+          onClick: () => navigator.clipboard.writeText(result.txid),
+        },
+      })
+    } catch (error: any) {
+      console.error("Token transfer failed:", error);
+      toast("Token transfer failed", {
+        description: error.message,
+      })
+    } finally {
+      setGetTokenLoading(false);
+    }
+  };
+
+
 
   const getStatusBadge = (status: string) => {
     switch (status?.toLowerCase()) {
@@ -381,7 +620,7 @@ export default function AgreementPage() {
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <CreditCard className="h-4 w-4 text-gray-400" />
-                    <p className="text-white">Initial Fee: {agreement.initial_fee} SOL</p>
+                    <p className="text-white">Initial Fee: {agreement.initial_fee} USDC</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <Share2 className="h-4 w-4 text-gray-400" />
@@ -471,7 +710,7 @@ export default function AgreementPage() {
           </Button>
 
           <div className="flex gap-3">
-            {agreement.status === "pending" && agreement.franchisor === wallet.publicKey?.toString() && (
+            {agreement.status === "draft" && agreement.franchisor === wallet.publicKey?.toString() && (
               <>
                 <Link href={`/edit/${id}`}>
                   <Button variant="outline" className="border-red-500 text-red-400 hover:bg-red-500/10">
@@ -507,8 +746,27 @@ export default function AgreementPage() {
                         onChange={(e) => setEmail(e.target.value)}
                         className="border-gray-600 bg-gray-800 text-white"
                       />
-                      <Button onClick={handleCreateMultisig} className="bg-green-600 hover:bg-green-700 text-white w-full">
-                        Create Multisig
+                      <Button
+                        onClick={handleCreateMultisig}
+                        className="bg-green-600 hover:bg-green-700 text-white w-full relative"
+                        disabled={createMultisigLoading}
+                      >
+                        {createMultisigLoading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Creating Multisig...
+                          </>
+                        ) : createMultisigSuccess ? (
+                          <>
+                            <Check className="mr-2 h-4 w-4" />
+                            Multisig Created!
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="mr-2 h-4 w-4" />
+                            Create Multisig
+                          </>
+                        )}
                       </Button>
                     </div>
                   </DialogContent>
@@ -516,23 +774,118 @@ export default function AgreementPage() {
               </>
             )}
 
-            {agreement.status === "draft" && agreement.franchisee === wallet.publicKey?.toString() && (
-              <Button className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-emerald-700 text-white">
-                <Wallet className="mr-2 h-4 w-4" />
-                Approve Multisig
-              </Button>
+            {agreement.status === "pending" && agreement.franchisee === wallet.publicKey?.toString() && (
+              <>
+                <Button
+                  onClick={getToken}
+                  className="bg-gradient-to-r from-yellow-500 to-yellow-600 hover:from-yellow-600 hover:to-yellow-700 text-white relative"
+                  disabled={getTokenLoading || getTokenSuccess}
+                >
+                  {getTokenLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Getting tokens...
+                    </>
+                  ) : getTokenSuccess ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Tokens Received!
+                    </>
+                  ) : (
+                    <>
+                      <Wallet className="mr-2 h-4 w-4" />
+                      Get 1k devnet USDT
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  onClick={handleApproveMultisig}
+                  className="bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white"
+                  disabled={approveMultisigLoading || approveMultisigSuccess}
+                >
+                  {approveMultisigLoading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Approving...
+                    </>
+                  ) : approveMultisigSuccess ? (
+                    <>
+                      <Check className="mr-2 h-4 w-4" />
+                      Approved!
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 h-4 w-4" />
+                      Approve Multisig
+                    </>
+                  )}
+                </Button>
+              </>
             )}
 
-            {agreement.status === "active" && agreement.franchisee == wallet.publicKey?.toString() || agreement.status === "active" && agreement.franchisor === wallet.publicKey?.toString() && (
-              <Button className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-emerald-700 text-white">
-                <Wallet className="mr-2 h-4 w-4" />
-                Terminate
-              </Button>
-            )}
+            {agreement.status === "active" &&
+              (agreement.franchisee === wallet.publicKey?.toString() || agreement.franchisor === wallet.publicKey?.toString()) && (
+                <Button className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white">
+                  <Wallet className="mr-2 h-4 w-4" />
+                  Terminate
+                </Button>
+              )}
           </div>
         </div>
+
+        {/* Success/Result Notifications */}
+        {getTokenSuccess && getTokenTxId && (
+          <div className="mt-6 bg-green-500/20 border border-green-500 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="bg-green-500 rounded-full p-1 mt-0.5">
+                <Check className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <h4 className="font-medium text-green-300">Token Transfer Successful!</h4>
+                <p className="text-sm text-green-200 mt-1">
+                  You have received 1,000 devnet USDT tokens. You can now proceed with approving the multisig.
+                </p>
+                <p className="text-xs text-green-300 mt-2">
+                  Transaction ID: {getTokenTxId.slice(0, 8)}...{getTokenTxId.slice(-8)}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {createMultisigSuccess && (
+          <div className="mt-6 bg-green-500/20 border border-green-500 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="bg-green-500 rounded-full p-1 mt-0.5">
+                <Check className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <h4 className="font-medium text-green-300">Multisig Created Successfully!</h4>
+                <p className="text-sm text-green-200 mt-1">
+                  The multisig has been created and the franchisee has been notified. Redirecting to your profile...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {approveMultisigSuccess && (
+          <div className="mt-6 bg-green-500/20 border border-green-500 rounded-lg p-4">
+            <div className="flex items-start gap-3">
+              <div className="bg-green-500 rounded-full p-1 mt-0.5">
+                <Check className="h-4 w-4 text-white" />
+              </div>
+              <div>
+                <h4 className="font-medium text-green-300">Agreement Approved!</h4>
+                <p className="text-sm text-green-200 mt-1">
+                  You have successfully approved the franchise agreement. Redirecting to your profile...
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
 }
-

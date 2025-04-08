@@ -366,7 +366,7 @@ const EditAgreement = ({ params }: { params: { id: string } }) => {
                   <Label htmlFor="initial_fee" className="text-gray-300">
                     <div className="flex items-center gap-2">
                       <DollarSign className="h-4 w-4 text-green-400" />
-                      <span>Initial Fee (SOL)</span>
+                      <span>Initial Fee (USDC)</span>
                     </div>
                   </Label>
                   <Input

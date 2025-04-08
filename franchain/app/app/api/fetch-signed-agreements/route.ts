@@ -4,16 +4,17 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json();
-        const { id } = body;
+        const { wallet } = body;
 
-        if (!id) {
+        if (!wallet) {
             return NextResponse.json({ message: "id required to fetch" }, { status: 400 })
         }
 
         const { data: agreementData, error } = await supabase
             .from("agreements")
             .select("*")
-            .eq("id", id)
+            .eq("franchisee", wallet)
+            .eq("status","active")
 
         if (error) {
             return NextResponse.json({ message: "Error fetching details" }, { status: 404 })

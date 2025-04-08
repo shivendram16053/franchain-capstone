@@ -31,7 +31,8 @@ const ProfilePage = () => {
   const [agreements, setAgreements] = useState<any[]>([])
   const [pendingAgreements, setPendingAgreements] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
-  const [isLoadingPending, setIsLoadingPending] = useState(true)
+  const [isLoadingPending, setIsLoadingPending] = useState(true);
+  const [signedAgreement,setSignedAgreement]=useState<any[]>([])
 
   useEffect(() => {
     if (!user) {
@@ -95,7 +96,7 @@ const ProfilePage = () => {
     try {
       setIsLoadingPending(true)
       
-      const response = await fetch("/api/fetch-pending-agreements", {
+      const response = await fetch("/api/fetch-pending-agreement", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ wallet: wallet.publicKey.toBase58() }),
@@ -106,8 +107,35 @@ const ProfilePage = () => {
       if (!response.ok) {
         throw new Error(result.error || "Failed to fetch pending agreements")
       }
+      
 
       setPendingAgreements(result.data || [])
+    } catch (error) {
+      console.error("Error fetching pending agreements:", error)
+    } finally {
+      setIsLoadingPending(false)
+    }
+  }
+  const fetchSignedAgreements = async () => {
+    if (!wallet.publicKey || !profile || profile.role !== 'franchisee') return
+
+    try {
+      setIsLoadingPending(true)
+      
+      const response = await fetch("/api/fetch-signed-agreements", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ wallet: wallet.publicKey.toBase58() }),
+      })
+
+      const result = await response.json()
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to fetch pending agreements")
+      }
+      
+
+      setSignedAgreement(result.data || [])
     } catch (error) {
       console.error("Error fetching pending agreements:", error)
     } finally {
@@ -130,6 +158,7 @@ const ProfilePage = () => {
   useEffect(() => {
     if (profile?.role === 'franchisee' && wallet.publicKey) {
       fetchPendingAgreements()
+      fetchSignedAgreements()
     }
   }, [profile, wallet.publicKey])
 
@@ -421,7 +450,7 @@ const ProfilePage = () => {
             )}
 
             {/* My Signed Agreements (For Franchisee) */}
-            {profile?.role === 'franchisee' && (
+            {profile?.role === 'franchisee'   && (
               <Card className="bg-gray-800 bg-opacity-50 border-gray-700 backdrop-blur-sm mt-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-white">
@@ -436,9 +465,9 @@ const ProfilePage = () => {
                       <Skeleton className="h-24 w-full bg-gray-700" />
                       <Skeleton className="h-24 w-full bg-gray-700" />
                     </div>
-                  ) : agreements.length > 0 ? (
+                  ) : signedAgreement.length > 0 ? (
                     <div className="grid gap-4">
-                      {agreements.map((agreement, index) => (
+                      {signedAgreement.map((agreement, index) => (
                         <Card
                           key={index}
                           className="bg-gray-900 border-gray-700 hover:border-green-500 transition-all cursor-pointer"
