@@ -1,11 +1,11 @@
 use anchor_lang::error_code;
 
 #[error_code]
-pub enum FranchainError{
+pub enum FranchainError {
     #[msg("You have already approved this multisig.")]
     AlreadyApproved,
     #[msg("Unauthorized operation.")]
-    Unauthorized,
+    UnauthorizedOperation,
     #[msg("Insufficient balance.")]
     InsufficientBalance,
     #[msg("Mathematical overflow.")]
@@ -14,4 +14,6 @@ pub enum FranchainError{
     Underflow,
     #[msg("Multisig already signed.")]
     AlreadySigned,
+    #[msg("You are not authorized to terminate this agreement.")]
+    UnauthorizedTermination,
 }

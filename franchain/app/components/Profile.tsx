@@ -523,7 +523,7 @@ const ProfilePage = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold text-green-400">{agreements.length}</span>
+                    <span className="text-3xl font-bold text-green-400">{signedAgreement.length}</span>
                     <span className="text-gray-500 text-sm mb-1">agreements</span>
                   </div>
                 </CardContent>

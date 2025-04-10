@@ -44,7 +44,7 @@ const CreateAgreement = () => {
     franchisor_share: "",
     dispute_resolution: "",
     email: "",
-    status: "pending",
+    status: "draft",
   })
 
   useEffect(() => {
@@ -141,7 +141,7 @@ const CreateAgreement = () => {
       <div className="max-w-3xl mx-auto">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-green-400 to-emerald-600">
-            Create Smart Agreement
+            Create Draft Agreement
           </h1>
           <p className="text-gray-400 mt-2">Define the terms of your blockchain-based agreement</p>
         </div>

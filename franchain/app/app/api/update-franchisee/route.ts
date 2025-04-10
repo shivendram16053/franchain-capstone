@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
         const { data, error } = await supabase
             .from("agreements")
             .update({
-                franchisee:franchisee,franchisee_email:franchisee_email,franchisor_approved:true,
+                franchisee:franchisee,franchisee_email:franchisee_email,franchisor_approved:true,status:"pending"
             })
             .eq("id", id)
             .select();

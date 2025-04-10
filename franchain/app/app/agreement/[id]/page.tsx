@@ -44,6 +44,8 @@ const programId = new PublicKey(idl.address);
 
 
 interface Agreement {
+  franchisor_termination: boolean,
+  franchisee_termination: boolean
   title: string
   description: string
   terms_conditions: string
@@ -270,16 +272,16 @@ export default function AgreementPage() {
 
       async function getOrCreateATA(owner: PublicKey) {
         const isPDA = PublicKey.isOnCurve(owner.toBuffer()) === false;
-      
+
         const ata = await spltoken.getAssociatedTokenAddress(
           usdt_mint,
           owner,
           isPDA,
           spltoken.TOKEN_PROGRAM_ID // 👈 Pass explicitly
         );
-      
+
         const accountInfo = await connectioncli.getAccountInfo(ata);
-      
+
         if (!accountInfo) {
           console.log(`Creating ATA for: ${owner.toBase58()}`);
           transaction.add(
@@ -292,10 +294,10 @@ export default function AgreementPage() {
             )
           );
         }
-      
+
         return ata;
       }
-      
+
 
       // 1. Create ATAs if they don't exist
       if (!wallet.publicKey) {
@@ -387,7 +389,7 @@ export default function AgreementPage() {
       toast("Failed to approve multisig", {
         description: err.message,
       })
-      
+
     } finally {
       setApproveMultisigLoading(false);
     }
@@ -437,6 +439,134 @@ export default function AgreementPage() {
       setGetTokenLoading(false);
     }
   };
+
+  const terminate = async () => {
+
+    if (!agreement || !wallet.publicKey || !program) return;
+
+    try {
+
+      const transaction = new Transaction();
+
+      async function getOrCreateATA(owner: PublicKey) {
+        const isPDA = PublicKey.isOnCurve(owner.toBuffer()) === false;
+
+        const ata = await spltoken.getAssociatedTokenAddress(
+          usdt_mint,
+          owner,
+          isPDA,
+          spltoken.TOKEN_PROGRAM_ID // 👈 Pass explicitly
+        );
+
+        const accountInfo = await connectioncli.getAccountInfo(ata);
+
+        if (!accountInfo) {
+          console.log(`Creating ATA for: ${owner.toBase58()}`);
+          transaction.add(
+            spltoken.createAssociatedTokenAccountInstruction(
+              wallet.publicKey!,
+              ata,
+              owner,
+              usdt_mint,
+              spltoken.TOKEN_PROGRAM_ID
+            )
+          );
+        }
+
+        return ata;
+      }
+
+
+
+      const franchisor = new PublicKey(agreement.franchisor);
+      const franchisee = new PublicKey(agreement.franchisee);
+
+
+      const [vault_pda, vault_bump] = PublicKey.findProgramAddressSync(
+        [Buffer.from("vaults"), franchisor.toBuffer(), franchisee.toBuffer()],
+        program.programId
+      );
+
+      const [agreement_pda, agreement_bump] = PublicKey.findProgramAddressSync(
+        [Buffer.from("agreement"), franchisor.toBuffer(), franchisee.toBuffer()],
+        program.programId
+      );
+
+
+      const franchiseeAta = await getOrCreateATA(franchisee);
+      const vaultAta = await getOrCreateATA(vault_pda); // Vault also needs an ATA
+
+      const terminateIx = await program.methods
+        .agreement()
+        .accounts({
+          franchisor,
+          franchisee,
+          agreementPda: agreement_pda,
+          vaultPda: vault_pda,
+          vaultAta: vaultAta,
+          franchiseeAta: franchiseeAta,
+          usdtMint: usdt_mint,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+          associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+        })
+        .instruction();
+
+      transaction.add(terminateIx);
+
+      // 3. Get latest blockhash
+      const { blockhash } = await connectioncli.getLatestBlockhash();
+      transaction.recentBlockhash = blockhash;
+      transaction.feePayer = wallet.publicKey;
+
+      // 4. Sign and send transaction
+      if (!wallet.signTransaction) {
+        throw new Error("Wallet does not support signing transactions");
+      }
+      const signedTx = await wallet.signTransaction(transaction);
+      const txId = await connectioncli.sendRawTransaction(signedTx.serialize());
+
+      // 5. Confirm transaction
+      await connectioncli.confirmTransaction({
+        signature: txId,
+        blockhash,
+        lastValidBlockHeight: (await connectioncli.getBlockHeight()) + 150, // ~1 minute timeout
+      });
+
+      console.log("Transaction Sent:", txId);
+
+
+      const response = await fetch("/api/terminate-agreement", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          id,
+          wallet: wallet.publicKey.toBase58(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Something went wrong");
+      }
+
+      toast("Agreement terminated!", {
+        description: result.message, // 👈 Show who terminated
+        action: {
+          label: "Copy TX",
+          onClick: () => navigator.clipboard.writeText(result.txid ?? ""),
+        },
+      });
+    } catch (err: any) {
+      console.error("Termination failed:", err);
+      toast("Termination failed", {
+        description: err.message,
+      })
+    }
+  }
 
 
 
@@ -825,12 +955,18 @@ export default function AgreementPage() {
             )}
 
             {agreement.status === "active" &&
+              !agreement.franchisee_termination &&
+              !agreement.franchisor_termination &&
               (agreement.franchisee === wallet.publicKey?.toString() || agreement.franchisor === wallet.publicKey?.toString()) && (
-                <Button className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white">
+                <Button
+                  onClick={terminate} // make sure your function is here
+                  className="bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white"
+                >
                   <Wallet className="mr-2 h-4 w-4" />
                   Terminate
                 </Button>
               )}
+
           </div>
         </div>
 

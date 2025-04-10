@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
             .from("agreements")
             .select("*")
             .eq("franchisee", wallet)
+            .eq("status", "pending")
 
         if (error) {
             return NextResponse.json({ message: "Error fetching details" }, { status: 404 })

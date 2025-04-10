@@ -1,5 +1,5 @@
 {
-  "address": "FXLMBJZHS2ZQNuYQgACjci1XuDFZTEP7JHB21Ft3Y61J",
+  "address": "HR7ngNVn7i7pU8VYSZAWjccUpnnWsZcwUxtvH5EYaBRx",
   "metadata": {
     "name": "franchain",
     "version": "0.1.0",
@@ -21,17 +21,12 @@
       ],
       "accounts": [
         {
-          "name": "franchisor",
+          "name": "signer",
           "writable": true,
           "signer": true
         },
         {
-          "name": "franchisee",
-          "writable": true,
-          "signer": true
-        },
-        {
-          "name": "agreement_pda",
+          "name": "agreement",
           "writable": true,
           "pda": {
             "seeds": [
@@ -51,17 +46,19 @@
               },
               {
                 "kind": "account",
-                "path": "franchisor"
+                "path": "agreement.franchisor",
+                "account": "Agreement"
               },
               {
                 "kind": "account",
-                "path": "franchisee"
+                "path": "agreement.franchisee",
+                "account": "Agreement"
               }
             ]
           }
         },
         {
-          "name": "vault_pda",
+          "name": "vault",
           "writable": true,
           "pda": {
             "seeds": [
@@ -78,11 +75,13 @@
               },
               {
                 "kind": "account",
-                "path": "franchisor"
+                "path": "agreement.franchisor",
+                "account": "Agreement"
               },
               {
                 "kind": "account",
-                "path": "franchisee"
+                "path": "agreement.franchisee",
+                "account": "Agreement"
               }
             ]
           }
@@ -94,7 +93,7 @@
             "seeds": [
               {
                 "kind": "account",
-                "path": "vault_pda"
+                "path": "vault"
               },
               {
                 "kind": "const",
@@ -184,7 +183,8 @@
             "seeds": [
               {
                 "kind": "account",
-                "path": "franchisee"
+                "path": "agreement.franchisee",
+                "account": "Agreement"
               },
               {
                 "kind": "const",
@@ -1616,7 +1616,7 @@
     },
     {
       "code": 6001,
-      "name": "Unauthorized",
+      "name": "UnauthorizedOperation",
       "msg": "Unauthorized operation."
     },
     {
@@ -1638,6 +1638,11 @@
       "code": 6005,
       "name": "AlreadySigned",
       "msg": "Multisig already signed."
+    },
+    {
+      "code": 6006,
+      "name": "UnauthorizedTermination",
+      "msg": "You are not authorized to terminate this agreement."
     }
   ],
   "types": [
