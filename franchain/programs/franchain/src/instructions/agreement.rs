@@ -15,16 +15,21 @@ pub struct AgreementFunc<'info> {
     #[account(mut)]
     pub signer: Signer<'info>,
 
+    /// CHECK: This is the franchisor account, and we assume it's correct because it is used to initialize the multisig.
+    pub franchisor : AccountInfo<'info>,
+    /// CHECK: This is the franchisor account, and we assume it's correct because it is used to initialize the multisig.
+    pub franchisee : AccountInfo<'info>,
+
     #[account(
         mut,
-        seeds = [b"agreement", agreement.franchisor.as_ref(), agreement.franchisee.as_ref()],
+        seeds = [b"agreement", franchisor.key().as_ref(), franchisee.key().as_ref()],
         bump = agreement.agreement_bump
     )]
     pub agreement: Account<'info, Agreement>,
 
     #[account(
         mut,
-        seeds = [b"vaults", agreement.franchisor.as_ref(), agreement.franchisee.as_ref()],
+        seeds = [b"vaults", franchisor.key().as_ref(), franchisee.key().as_ref()],
         bump = vault.vault_bump
     )]
     pub vault: Account<'info, Vault>,
@@ -39,7 +44,7 @@ pub struct AgreementFunc<'info> {
     #[account(
         mut,
         associated_token::mint = usdt_mint,
-        associated_token::authority = agreement.franchisee
+        associated_token::authority = franchisee
     )]
     pub franchisee_ata: Account<'info, TokenAccount>,
 

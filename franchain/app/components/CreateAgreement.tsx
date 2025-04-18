@@ -57,14 +57,14 @@ const CreateAgreement = () => {
     if (wallet.publicKey) {
       const publicKeyStr = wallet.publicKey.toString()
       setWalletAddress(publicKeyStr)
-      setFormData((prev) => ({ ...prev, franchisor: publicKeyStr,email:parsedUser?.email }))
+      setFormData((prev) => ({ ...prev, franchisor: publicKeyStr, email: parsedUser?.email }))
     }
   }, [wallet.publicKey])
 
   const handleChange = (e: { target: { name: any; value: any } }) => {
-    
+
     setFormData({ ...formData, [e.target.name]: e.target.value })
-    
+
   }
 
   const validateCurrentStep = () => {
@@ -74,7 +74,7 @@ const CreateAgreement = () => {
       case 2:
         return formData.terms_conditions && formData.payment_terms && formData.termination_clause
       case 3:
-        return formData.franchisor && formData.initial_fee  && formData.contract_duration
+        return formData.franchisor && formData.initial_fee && formData.contract_duration
       case 4:
         return formData.franchisor_share && formData.dispute_resolution
       default:
@@ -136,6 +136,28 @@ const CreateAgreement = () => {
 
   const StepIcon = getStepIcon(step)
 
+  if (role === "franchisee") {
+    return (
+      <div className="min-h-screen mt-14 bg-gradient-to-b from-black to-gray-900 text-white py-16 px-4">
+        <div className="max-w-3xl mx-auto text-center">
+          <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-red-400 to-pink-600">
+            Access Restricted
+          </h1>
+          <p className="text-gray-400 mt-4">
+            You can't create draft agreements as a franchisee. Please contact your franchisor for more information.
+          </p>
+          <Button 
+            onClick={() => router.push("/profile")} 
+            className="mt-6 bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700"
+          >
+            Go to Profile
+          </Button>
+        </div>
+      </div>
+    );
+  }
+  
+
   return (
     <div className="min-h-screen mt-14 bg-gradient-to-b from-black to-gray-900 text-white py-16 px-4">
       <div className="max-w-3xl mx-auto">
@@ -152,20 +174,18 @@ const CreateAgreement = () => {
             {[1, 2, 3, 4].map((num) => (
               <div key={num} className="flex flex-col items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                    step === num
+                  className={`w-10 h-10 rounded-full flex items-center justify-center ${step === num
                       ? "bg-green-500 text-white"
                       : step > num
                         ? "bg-green-900 text-green-400"
                         : "bg-gray-800 text-gray-500"
-                  }`}
+                    }`}
                 >
                   {step > num ? <CheckCircle2 className="h-5 w-5" /> : num}
                 </div>
                 <span
-                  className={`text-xs mt-2 ${
-                    step === num ? "text-green-400" : step > num ? "text-green-700" : "text-gray-500"
-                  }`}
+                  className={`text-xs mt-2 ${step === num ? "text-green-400" : step > num ? "text-green-700" : "text-gray-500"
+                    }`}
                 >
                   {num === 1 ? "Basics" : num === 2 ? "Terms" : num === 3 ? "Contract" : "Finalize"}
                 </span>
@@ -315,7 +335,7 @@ const CreateAgreement = () => {
                   />
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  
+
                   <div className="space-y-2">
                     <Label htmlFor="contract_duration" className="text-gray-300">
                       <div className="flex items-center gap-2">

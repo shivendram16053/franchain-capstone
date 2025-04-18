@@ -130,26 +130,25 @@ export default function AgreementPage() {
 
   const handleCreateMultisig = async () => {
     if (!agreement || !wallet.publicKey || !walletAddress || !program) return;
-
+  
     try {
       setCreateMultisigLoading(true);
       setCreateMultisigSuccess(false);
-
-      // 1. Prepare accounts and parameters
+  
       const franchisor = wallet.publicKey;
       const franchisee = new PublicKey(walletAddress);
       const initialFee = new anchor.BN(Math.round(parseFloat(agreement.initial_fee) * 1e9)); // Convert to lamports
       const threshold = 2;
-
-      // 2. Generate PDA
+  
+      // 1. Generate PDA
       const seeds = [
         anchor.utils.bytes.utf8.encode('multisig'),
         franchisor.toBuffer(),
         franchisee.toBuffer(),
       ];
       const [multisigPda, multisigBump] = await PublicKey.findProgramAddress(seeds, program.programId);
-
-      // 3. Build the instruction
+  
+      // 2. Build the instruction
       const tx = await program.methods
         .initialize(
           franchisor,
@@ -168,146 +167,142 @@ export default function AgreementPage() {
           systemProgram: anchor.web3.SystemProgram.programId,
         })
         .transaction();
-
-      // 4. Get recent blockhash and set it on the transaction
-      const { blockhash } = await connectioncli.getLatestBlockhash();
-      tx.recentBlockhash = blockhash;
+  
+      // 3. Get latest blockhash (includes lastValidBlockHeight)
+      const latestBlockhash = await connectioncli.getLatestBlockhash();
+      tx.recentBlockhash = latestBlockhash.blockhash;
       tx.feePayer = wallet.publicKey;
-
-      // 5. Sign and send the transaction
+  
+      // 4. Sign the transaction
       if (!wallet.signTransaction) {
         throw new Error("Wallet does not support signing transactions");
       }
       const signedTx = await wallet.signTransaction(tx);
       const rawTransaction = signedTx.serialize();
-      const txId = await connectioncli.sendRawTransaction(rawTransaction);
-
+  
+      // 5. Send the transaction
+      const txId = await connectioncli.sendRawTransaction(rawTransaction, {
+        skipPreflight: false,
+        preflightCommitment: "processed"
+      });
+  
       // 6. Confirm transaction
       const confirmation = await connectioncli.confirmTransaction({
         signature: txId,
-        blockhash,
-        lastValidBlockHeight: (await connectioncli.getBlockHeight()) + 150, // ~1 minute timeout
-      });
-
+        ...latestBlockhash
+      }, "processed");
+  
       if (confirmation.value.err) {
         throw new Error("Transaction failed");
       }
-
-      if (confirmation) {
-        // 7. Update backend
-        const response = await fetch("/api/update-franchisee", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            id,
-            franchisee: franchisee.toBase58(),
-            franchisee_email: email
-          }),
-        });
-
-        if (!response.ok) throw new Error("Failed to update DB");
-      }
-
+  
+      // 7. Update backend DB
+      const response = await fetch("/api/update-franchisee", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          franchisee: franchisee.toBase58(),
+          franchisee_email: email
+        }),
+      });
+  
+      if (!response.ok) throw new Error("Failed to update DB");
+  
       setCreateMultisigSuccess(true);
-
+  
       toast("Multisig created successfully. Transaction ID: " + txId, {
         description: "You can view the transaction on Solscan.",
         action: {
           label: "Copy TX",
           onClick: () => navigator.clipboard.writeText(txId),
         },
-      })
-
-      // Redirect after a short delay to show success state
+      });
+  
       setTimeout(() => {
         router.push("/profile");
       }, 2000);
-
+  
     } catch (err: any) {
       setError('Failed to create multisig: ' + err.message);
       console.error(err);
       toast("Failed to create multisig", {
         description: err.message,
-      })
+      });
     } finally {
       setCreateMultisigLoading(false);
     }
   };
+  
 
   const handleApproveMultisig = async () => {
     if (!agreement || !wallet.publicKey || !program) return;
-
+  
     try {
       setApproveMultisigLoading(true);
       setApproveMultisigSuccess(false);
-
-      // 1. Prepare accounts and parameters
+  
       const franchisor = new PublicKey(agreement.franchisor);
       const franchisee = wallet.publicKey;
-
-      const franchisor_share = Number(agreement.franchisor_share); // u8
-      const franchisee_share = Number(100 - Number(agreement.franchisor_share)); // u8
-      const initial_fee = new anchor.BN(agreement.initial_fee); // u64
-      const contract_start = new anchor.BN(Math.floor(Date.now() / 1000)); // i128 (Unix Timestamp)
-      const contract_duration = new anchor.BN(agreement.contract_duration); // u64
-      const dispute_resolution = agreement.dispute_resolution.toString(); // String
-      const vault_status = "active"; // String
-
+  
+      const franchisor_share = Number(agreement.franchisor_share);
+      const franchisee_share = 100 - franchisor_share;
+      const initial_fee = new anchor.BN(agreement.initial_fee);
+      const contract_start = new anchor.BN(Math.floor(Date.now() / 1000));
+      const contract_duration = new anchor.BN(agreement.contract_duration);
+      const dispute_resolution = agreement.dispute_resolution.toString();
+      const vault_status = "active";
+  
       const [multisigPda, multisigBump] = PublicKey.findProgramAddressSync(
         [Buffer.from("multisig"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-
+  
       const [vault_pda, vault_bump] = PublicKey.findProgramAddressSync(
         [Buffer.from("vaults"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-
+  
       const [agreement_pda, agreement_bump] = PublicKey.findProgramAddressSync(
         [Buffer.from("agreement"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-
+  
       const transaction = new Transaction();
-
+  
       async function getOrCreateATA(owner: PublicKey) {
         const isPDA = PublicKey.isOnCurve(owner.toBuffer()) === false;
-
+  
         const ata = await spltoken.getAssociatedTokenAddress(
           usdt_mint,
           owner,
           isPDA,
-          spltoken.TOKEN_PROGRAM_ID // 👈 Pass explicitly
+          spltoken.TOKEN_PROGRAM_ID
         );
-
+  
         const accountInfo = await connectioncli.getAccountInfo(ata);
-
+  
         if (!accountInfo) {
-          console.log(`Creating ATA for: ${owner.toBase58()}`);
           transaction.add(
             spltoken.createAssociatedTokenAccountInstruction(
               wallet.publicKey!,
               ata,
               owner,
               usdt_mint,
-              spltoken.TOKEN_PROGRAM_ID // 👈 Must also be passed here!
+              spltoken.TOKEN_PROGRAM_ID
             )
           );
         }
-
+  
         return ata;
       }
-
-
-      // 1. Create ATAs if they don't exist
-      if (!wallet.publicKey) {
-        throw new Error("Wallet public key is null");
-      }
+  
+      // Create ATAs
       const franchiseeAta = await getOrCreateATA(franchisee);
       const franchisorAta = await getOrCreateATA(franchisor);
-      const vaultAta = await getOrCreateATA(vault_pda); // Vault also needs an ATA
-
-      // 2. Create multisig instruction
+      const vaultAta = await getOrCreateATA(vault_pda);
+  
+      // Build multisig instruction
       const multisigIx = await program.methods
         .multisig(
           franchisor_share,
@@ -327,48 +322,48 @@ export default function AgreementPage() {
           multisigPda,
           vaultPda: vault_pda,
           agreementPda: agreement_pda,
-          vaultAta: vaultAta,
-          franchisorAta: franchisorAta,
-          franchiseeAta: franchiseeAta,
+          vaultAta,
+          franchisorAta,
+          franchiseeAta,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
           associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
         })
         .instruction();
-
+  
       transaction.add(multisigIx);
-
-      // 3. Get latest blockhash
-      const { blockhash } = await connectioncli.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
+  
+      // Get recent blockhash & set it
+      const latestBlockhash = await connectioncli.getLatestBlockhash();
+      transaction.recentBlockhash = latestBlockhash.blockhash;
       transaction.feePayer = wallet.publicKey;
-
-      // 4. Sign and send transaction
+  
+      // Sign & send
       if (!wallet.signTransaction) {
         throw new Error("Wallet does not support signing transactions");
       }
       const signedTx = await wallet.signTransaction(transaction);
-      const txId = await connectioncli.sendRawTransaction(signedTx.serialize());
-
-      // 5. Confirm transaction
+      const rawTx = signedTx.serialize();
+      const txId = await connectioncli.sendRawTransaction(rawTx, {
+        skipPreflight: false,
+        preflightCommitment: "processed",
+      });
+  
+      // Confirm using proper blockhash + lastValidBlockHeight
       await connectioncli.confirmTransaction({
         signature: txId,
-        blockhash,
-        lastValidBlockHeight: (await connectioncli.getBlockHeight()) + 150, // ~1 minute timeout
-      });
-
-      console.log("Transaction Sent:", txId);
-      // 7. Update backend
+        ...latestBlockhash
+      }, "processed");
+  
+      // Update backend
       const response = await fetch("/api/update-draft-agreement", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          id,
-        }),
+        body: JSON.stringify({ id }),
       });
-
+  
       if (!response.ok) throw new Error("Failed to update DB");
-
+  
       setApproveMultisigSuccess(true);
       toast("Agreement approved!", {
         description: "Transaction ID: " + txId,
@@ -376,24 +371,23 @@ export default function AgreementPage() {
           label: "Copy TX",
           onClick: () => navigator.clipboard.writeText(txId),
         },
-      })
-
-      // Redirect after a short delay to show success state
+      });
+  
       setTimeout(() => {
         router.push("/profile");
       }, 2000);
-
+  
     } catch (err: any) {
-      setError('Failed to approve multisig: ' + err.message);
+      setError("Failed to approve multisig: " + err.message);
       console.error(err);
       toast("Failed to approve multisig", {
         description: err.message,
-      })
-
+      });
     } finally {
       setApproveMultisigLoading(false);
     }
-  }
+  };
+  
 
   const getToken = async () => {
     try {
@@ -441,25 +435,23 @@ export default function AgreementPage() {
   };
 
   const terminate = async () => {
-
     if (!agreement || !wallet.publicKey || !program) return;
-
+  
     try {
-
       const transaction = new Transaction();
-
+  
       async function getOrCreateATA(owner: PublicKey) {
         const isPDA = PublicKey.isOnCurve(owner.toBuffer()) === false;
-
+  
         const ata = await spltoken.getAssociatedTokenAddress(
           usdt_mint,
           owner,
           isPDA,
-          spltoken.TOKEN_PROGRAM_ID // 👈 Pass explicitly
+          spltoken.TOKEN_PROGRAM_ID
         );
-
+  
         const accountInfo = await connectioncli.getAccountInfo(ata);
-
+  
         if (!accountInfo) {
           console.log(`Creating ATA for: ${owner.toBase58()}`);
           transaction.add(
@@ -472,70 +464,76 @@ export default function AgreementPage() {
             )
           );
         }
-
+  
         return ata;
       }
-
-
-
+  
       const franchisor = new PublicKey(agreement.franchisor);
       const franchisee = new PublicKey(agreement.franchisee);
-
-
-      const [vault_pda, vault_bump] = PublicKey.findProgramAddressSync(
+      console.log(franchisee.toBase58(),franchisor.toBase58());
+  
+      const [vault_pda] = PublicKey.findProgramAddressSync(
         [Buffer.from("vaults"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-
-      const [agreement_pda, agreement_bump] = PublicKey.findProgramAddressSync(
-        [Buffer.from("agreement"), franchisor.toBuffer(), franchisee.toBuffer()],
+      console.log(vault_pda.toBase58())
+  
+      const [agreement_pda] = PublicKey.findProgramAddressSync(
+        [
+          Buffer.from("agreement"),
+          franchisor.toBuffer(), 
+          franchisee.toBuffer()
+        ],
         program.programId
       );
+      console.log(agreement_pda.toBase58())
+
+      // const agreementAccount = await program.account.agreement.fetch(agreement_pda);
+      // console.log("Agreement state:", agreementAccount);
 
 
+  
       const franchiseeAta = await getOrCreateATA(franchisee);
-      const vaultAta = await getOrCreateATA(vault_pda); // Vault also needs an ATA
-
+      const vaultAta = await getOrCreateATA(vault_pda);
+  
       const terminateIx = await program.methods
         .agreement()
         .accounts({
-          franchisor,
-          franchisee,
-          agreementPda: agreement_pda,
-          vaultPda: vault_pda,
-          vaultAta: vaultAta,
-          franchiseeAta: franchiseeAta,
-          usdtMint: usdt_mint,
+          signer: wallet.publicKey,
+          franchisor:franchisor,
+          franchisee:franchisee,              
+          agreement: agreement_pda,              
+          vault: vault_pda,                      
+          vaultAta: vaultAta,                    
+          franchiseeAta: franchiseeAta,          
+          usdtMint: usdt_mint,                   
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
           associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
         })
         .instruction();
-
+  
       transaction.add(terminateIx);
-
-      // 3. Get latest blockhash
+  
       const { blockhash } = await connectioncli.getLatestBlockhash();
       transaction.recentBlockhash = blockhash;
       transaction.feePayer = wallet.publicKey;
-
-      // 4. Sign and send transaction
+  
       if (!wallet.signTransaction) {
         throw new Error("Wallet does not support signing transactions");
       }
+  
       const signedTx = await wallet.signTransaction(transaction);
       const txId = await connectioncli.sendRawTransaction(signedTx.serialize());
-
-      // 5. Confirm transaction
+  
       await connectioncli.confirmTransaction({
         signature: txId,
         blockhash,
-        lastValidBlockHeight: (await connectioncli.getBlockHeight()) + 150, // ~1 minute timeout
+        lastValidBlockHeight: (await connectioncli.getBlockHeight()) + 150,
       });
-
+  
       console.log("Transaction Sent:", txId);
-
-
+  
       const response = await fetch("/api/terminate-agreement", {
         method: "POST",
         headers: {
@@ -544,17 +542,18 @@ export default function AgreementPage() {
         body: JSON.stringify({
           id,
           wallet: wallet.publicKey.toBase58(),
+          txid: txId,
         }),
       });
-
+  
       const result = await response.json();
-
+  
       if (!response.ok) {
         throw new Error(result.error || "Something went wrong");
       }
-
+  
       toast("Agreement terminated!", {
-        description: result.message, // 👈 Show who terminated
+        description: result.message,
         action: {
           label: "Copy TX",
           onClick: () => navigator.clipboard.writeText(result.txid ?? ""),
@@ -564,9 +563,10 @@ export default function AgreementPage() {
       console.error("Termination failed:", err);
       toast("Termination failed", {
         description: err.message,
-      })
+      });
     }
-  }
+  };
+  
 
 
 

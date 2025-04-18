@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
                 .from("agreements")
                 .update({
                     franchisor_termination:true,
-                    status: "franchisor terminated"
+                    status: "terminated"
                 })
                 .eq("id", id)
                 .select();
@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
                 .from("agreements")
                 .update({
                     franchisee_termination:true,
-                    status: "franchisee terminated"
+                    status: "terminated"
                 })
                 .eq("id", id)
                 .select();

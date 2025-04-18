@@ -684,13 +684,15 @@ describe("franchain", () => {
 
   it("Should terminate the agreement only if both parties sign it asynchronously", async () => {
     try {
-      const tx = await (program.methods as any)
+      // 1. First, franchisor signs
+      await (program.methods as any)
         .agreement()
         .accounts({
+          signer: franchisor.publicKey,
           franchisor: franchisor.publicKey,
           franchisee: franchisee.publicKey,
-          agreementPda: agreement_pda,
-          vaultPda: vault_pda,
+          agreement: agreement_pda,
+          vault: vault_pda,
           vaultAta: vault_ata,
           franchiseeAta: franchisee_ata,
           usdtMint: usdt_mint,
@@ -698,32 +700,57 @@ describe("franchain", () => {
           tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
           associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
         })
-        .signers([franchisor, franchisee])
+        .signers([franchisor])
         .rpc();
-
-      const agreementAccount = await program.account.agreement.fetch(
-        agreement_pda
+  
+      let agreementAccount = await program.account.agreement.fetch(agreement_pda);
+      assert.strictEqual(
+        agreementAccount.status,
+        "active", // Assuming initial status is 'active'
+        "Agreement should still be active after only one party signs"
       );
-
+  
+      // 2. Then, franchisee signs
+      await (program.methods as any)
+        .agreement()
+        .accounts({
+          signer: franchisee.publicKey,
+          franchisor: franchisor.publicKey,
+          franchisee: franchisee.publicKey,
+          agreement: agreement_pda,
+          vault: vault_pda,
+          vaultAta: vault_ata,
+          franchiseeAta: franchisee_ata,
+          usdtMint: usdt_mint,
+          systemProgram: anchor.web3.SystemProgram.programId,
+          tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
+          associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
+        })
+        .signers([franchisee])
+        .rpc();
+  
+      // 3. Fetch and validate state after both parties have signed
+      agreementAccount = await program.account.agreement.fetch(agreement_pda);
+      const vaultAccount = await program.account.vault.fetch(vault_pda);
+  
       assert.strictEqual(
         agreementAccount.status,
         "terminated",
         "Agreement status should be terminated"
       );
-
-      const vaultAccount = await program.account.vault.fetch(vault_pda);
+  
       assert.ok(
         vaultAccount.balance.eq(new anchor.BN(0)),
-        "Vault balance should be zero"
+        "Vault balance should be zero after termination"
       );
-
-      console.log(
-        "Agreement is terminated, Both parties have signed it asynchronously"
-      );
+  
+      console.log("Agreement terminated successfully after both parties signed.");
     } catch (err) {
-      console.log("Error in termination signing", err);
+      console.error("Error during asynchronous termination flow:", err);
+      throw err;
     }
   });
+  
 
   it("Should not terminate the agreement only if one party signs it", async () => {
     try {

@@ -4,15 +4,15 @@
 resolution = true
 skip-lint = false
 
-[programs.devnet]
-franchain = "HR7ngNVn7i7pU8VYSZAWjccUpnnWsZcwUxtvH5EYaBRx"
+[programs.localnet]
+franchain = "HR7ngNVn7i7pU8VYSZAWjccUpnnWsZcwUxtvH5EYaBRx"  
 
 [registry]
 url = "https://api.apr.dev"
 
 [provider]
-cluster = "devnet"
-wallet = "Turbin3_wallet.json"
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"  
 
 [scripts]
 test = "yarn run ts-mocha -p ./tsconfig.json -t 1000000 tests/**/*.ts"

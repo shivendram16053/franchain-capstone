@@ -26,6 +26,12 @@
           "signer": true
         },
         {
+          "name": "franchisor"
+        },
+        {
+          "name": "franchisee"
+        },
+        {
           "name": "agreement",
           "writable": true,
           "pda": {
@@ -46,13 +52,11 @@
               },
               {
                 "kind": "account",
-                "path": "agreement.franchisor",
-                "account": "Agreement"
+                "path": "franchisor"
               },
               {
                 "kind": "account",
-                "path": "agreement.franchisee",
-                "account": "Agreement"
+                "path": "franchisee"
               }
             ]
           }
@@ -75,13 +79,11 @@
               },
               {
                 "kind": "account",
-                "path": "agreement.franchisor",
-                "account": "Agreement"
+                "path": "franchisor"
               },
               {
                 "kind": "account",
-                "path": "agreement.franchisee",
-                "account": "Agreement"
+                "path": "franchisee"
               }
             ]
           }
@@ -183,8 +185,7 @@
             "seeds": [
               {
                 "kind": "account",
-                "path": "agreement.franchisee",
-                "account": "Agreement"
+                "path": "franchisee"
               },
               {
                 "kind": "const",

@@ -12,7 +12,7 @@ export async function POST(req:NextRequest){
 
         const {data:userData,error:userError} = await supabase
         .from("users")
-        .select("username,email,phone,bio,name , role,wallet")
+        .select("*")
         .eq("wallet",wallet)
         .maybeSingle();
 

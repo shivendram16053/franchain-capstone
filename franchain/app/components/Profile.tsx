@@ -32,7 +32,7 @@ const ProfilePage = () => {
   const [pendingAgreements, setPendingAgreements] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isLoadingPending, setIsLoadingPending] = useState(true);
-  const [signedAgreement,setSignedAgreement]=useState<any[]>([])
+  const [signedAgreement, setSignedAgreement] = useState<any[]>([])
 
   useEffect(() => {
     if (!user) {
@@ -54,6 +54,7 @@ const ProfilePage = () => {
 
       const data = await response.json()
       setProfile(data.user)
+      console.log(data.user)
       localStorage.setItem("role", data.user.role)
     } catch (error) {
       console.error("Error fetching user profile:", error)
@@ -64,7 +65,7 @@ const ProfilePage = () => {
 
   // Fetch agreements based on user role
   const fetchAgreements = async () => {
-    if (!user?.email) return
+    if (!user?.email || !wallet.publicKey) return
 
     try {
       setIsLoading(true)
@@ -72,7 +73,10 @@ const ProfilePage = () => {
       const response = await fetch("/api/fetch-agreements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: user.email }),
+        body: JSON.stringify({ 
+          email: user.email,
+          wallet: wallet.publicKey.toBase58() // Pass wallet address to filter results
+        }),
       })
 
       const result = await response.json()
@@ -81,7 +85,18 @@ const ProfilePage = () => {
         throw new Error(result.error || "Failed to fetch agreements")
       }
 
-      setAgreements(result.data)
+      // For franchisor, filter agreements to only show ones they created
+      if (profile?.role === 'franchisor') {
+        const myAgreements = result.data.filter(
+          (agreement: any) => agreement.franchisor === wallet.publicKey?.toBase58()
+        )
+
+        console.log("result data",result.data)
+        console.log("filterred agreements",myAgreements)
+        setAgreements(myAgreements)
+      } else {
+        setAgreements(result.data)
+      }
     } catch (error) {
       console.error("Error fetching agreements:", error)
     } finally {
@@ -108,7 +123,6 @@ const ProfilePage = () => {
         throw new Error(result.error || "Failed to fetch pending agreements")
       }
       
-
       setPendingAgreements(result.data || [])
     } catch (error) {
       console.error("Error fetching pending agreements:", error)
@@ -116,6 +130,7 @@ const ProfilePage = () => {
       setIsLoadingPending(false)
     }
   }
+
   const fetchSignedAgreements = async () => {
     if (!wallet.publicKey || !profile || profile.role !== 'franchisee') return
 
@@ -131,13 +146,12 @@ const ProfilePage = () => {
       const result = await response.json()
 
       if (!response.ok) {
-        throw new Error(result.error || "Failed to fetch pending agreements")
+        throw new Error(result.error || "Failed to fetch signed agreements")
       }
       
-
       setSignedAgreement(result.data || [])
     } catch (error) {
-      console.error("Error fetching pending agreements:", error)
+      console.error("Error fetching signed agreements:", error)
     } finally {
       setIsLoadingPending(false)
     }
@@ -150,10 +164,10 @@ const ProfilePage = () => {
   }, [wallet.connected, wallet.publicKey])
 
   useEffect(() => {
-    if (user?.email) {
+    if (user?.email && wallet.publicKey && profile?.role) {
       fetchAgreements()
     }
-  }, [user?.email])
+  }, [user?.email, wallet.publicKey, profile?.role])
 
   useEffect(() => {
     if (profile?.role === 'franchisee' && wallet.publicKey) {
@@ -341,16 +355,16 @@ const ProfilePage = () => {
                           <CardFooter className="flex justify-between items-center border-t border-gray-800 pt-4">
                             <span className="text-xs text-gray-500">ID: {agreement.id}</span>
                             <div className="flex gap-2">
-                              {agreement.status === "draft" || agreement.status === "active"? (<></>):(
+                              {agreement.status === "draft" || agreement.status === "active" ? (<></>) : (
                                 <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="h-8 gap-1 text-blue-400 hover:text-blue-300"
-                                onClick={() => router.push(`/edit/${agreement.id}`)}
-                              >
-                                <Edit className="h-3.5 w-3.5" />
-                                <span>Edit</span>
-                              </Button>
+                                  variant="ghost" 
+                                  size="sm" 
+                                  className="h-8 gap-1 text-blue-400 hover:text-blue-300"
+                                  onClick={() => router.push(`/edit/${agreement.id}`)}
+                                >
+                                  <Edit className="h-3.5 w-3.5" />
+                                  <span>Edit</span>
+                                </Button>
                               )}
                               <Button 
                                 variant="ghost" 
@@ -450,7 +464,7 @@ const ProfilePage = () => {
             )}
 
             {/* My Signed Agreements (For Franchisee) */}
-            {profile?.role === 'franchisee'   && (
+            {profile?.role === 'franchisee' && (
               <Card className="bg-gray-800 bg-opacity-50 border-gray-700 backdrop-blur-sm mt-6">
                 <CardHeader className="pb-2">
                   <CardTitle className="flex items-center gap-2 text-white">
@@ -523,7 +537,9 @@ const ProfilePage = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-end gap-2">
-                    <span className="text-3xl font-bold text-green-400">{signedAgreement.length}</span>
+                    <span className="text-3xl font-bold text-green-400">
+                      {profile?.role === 'franchisor' ? agreements.length : signedAgreement.length}
+                    </span>
                     <span className="text-gray-500 text-sm mb-1">agreements</span>
                   </div>
                 </CardContent>
