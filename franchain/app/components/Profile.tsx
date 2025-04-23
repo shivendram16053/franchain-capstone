@@ -9,18 +9,18 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Skeleton } from "@/components/ui/skeleton"
-import { 
-  Wallet, 
-  User, 
-  FileText, 
-  PlusCircle, 
-  ExternalLink, 
-  Copy, 
-  Shield, 
-  Mail, 
-  Phone, 
-  Edit, 
-  FileSignature 
+import {
+  Wallet,
+  User,
+  FileText,
+  PlusCircle,
+  ExternalLink,
+  Copy,
+  Shield,
+  Mail,
+  Phone,
+  Edit,
+  FileSignature
 } from "lucide-react"
 
 const ProfilePage = () => {
@@ -69,11 +69,11 @@ const ProfilePage = () => {
 
     try {
       setIsLoading(true)
-      
+
       const response = await fetch("/api/fetch-agreements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           email: user.email,
           wallet: wallet.publicKey.toBase58() // Pass wallet address to filter results
         }),
@@ -91,8 +91,8 @@ const ProfilePage = () => {
           (agreement: any) => agreement.franchisor === wallet.publicKey?.toBase58()
         )
 
-        console.log("result data",result.data)
-        console.log("filterred agreements",myAgreements)
+        console.log("result data", result.data)
+        console.log("filterred agreements", myAgreements)
         setAgreements(myAgreements)
       } else {
         setAgreements(result.data)
@@ -110,7 +110,7 @@ const ProfilePage = () => {
 
     try {
       setIsLoadingPending(true)
-      
+
       const response = await fetch("/api/fetch-pending-agreement", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -122,7 +122,7 @@ const ProfilePage = () => {
       if (!response.ok) {
         throw new Error(result.error || "Failed to fetch pending agreements")
       }
-      
+
       setPendingAgreements(result.data || [])
     } catch (error) {
       console.error("Error fetching pending agreements:", error)
@@ -136,7 +136,7 @@ const ProfilePage = () => {
 
     try {
       setIsLoadingPending(true)
-      
+
       const response = await fetch("/api/fetch-signed-agreements", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,7 +148,7 @@ const ProfilePage = () => {
       if (!response.ok) {
         throw new Error(result.error || "Failed to fetch signed agreements")
       }
-      
+
       setSignedAgreement(result.data || [])
     } catch (error) {
       console.error("Error fetching signed agreements:", error)
@@ -195,8 +195,8 @@ const ProfilePage = () => {
               Profile
             </h1>
             <p className="text-gray-400 mt-2">
-              {profile?.role === 'franchisor' 
-                ? "Manage your agreements" 
+              {profile?.role === 'franchisor'
+                ? "Manage your agreements"
                 : "View agreements to sign"}
             </p>
           </div>
@@ -343,22 +343,27 @@ const ProfilePage = () => {
                               <Badge
                                 variant={agreement.status === "draft" ? "outline" : "default"}
                                 className={
-                                  agreement.status === "pending"
-                                    ? "border-yellow-700 bg-yellow-900"
-                                    : "bg-green-500 hover:bg-green-600"
+                                  agreement.status === "terminated"
+                                    ? "bg-red-600 hover:bg-red-700"
+                                    : agreement.status === "pending"
+                                      ? "border-yellow-700 bg-yellow-900"
+                                      : agreement.status === "active"
+                                        ? "bg-green-500 hover:bg-green-600"
+                                        : ""
                                 }
                               >
                                 {agreement.status}
                               </Badge>
+
                             </div>
                           </CardHeader>
                           <CardFooter className="flex justify-between items-center border-t border-gray-800 pt-4">
                             <span className="text-xs text-gray-500">ID: {agreement.id}</span>
                             <div className="flex gap-2">
                               {agreement.status === "draft" || agreement.status === "active" ? (<></>) : (
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
                                   className="h-8 gap-1 text-blue-400 hover:text-blue-300"
                                   onClick={() => router.push(`/edit/${agreement.id}`)}
                                 >
@@ -366,9 +371,9 @@ const ProfilePage = () => {
                                   <span>Edit</span>
                                 </Button>
                               )}
-                              <Button 
-                                variant="ghost" 
-                                size="sm" 
+                              <Button
+                                variant="ghost"
+                                size="sm"
                                 className="h-8 gap-1 text-green-400 hover:text-green-300"
                                 onClick={() => router.push(`/agreement/${agreement.id}`)}
                               >
@@ -438,9 +443,9 @@ const ProfilePage = () => {
                             <div className="flex items-center gap-2 text-xs text-gray-500">
                               <span>From: {truncateAddress(agreement.franchisor)}</span>
                             </div>
-                            <Button 
-                              variant="outline" 
-                              size="sm" 
+                            <Button
+                              variant="outline"
+                              size="sm"
                               className="h-8 gap-1 border-green-500 text-green-400 hover:bg-green-500/10"
                             >
                               <FileSignature className="h-3.5 w-3.5" />
@@ -502,9 +507,9 @@ const ProfilePage = () => {
                             <div className="flex items-center gap-2 text-xs text-gray-500">
                               <span>From: {truncateAddress(agreement.franchisor)}</span>
                             </div>
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              variant="ghost"
+                              size="sm"
                               className="h-8 gap-1 text-green-400 hover:text-green-300"
                             >
                               <ExternalLink className="h-3.5 w-3.5" />

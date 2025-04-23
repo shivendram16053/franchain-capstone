@@ -83,8 +83,8 @@ const HomePage = () => {
         return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>
       case "pending":
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pending</Badge>
-      case "rejected":
-        return <Badge className="bg-red-500 hover:bg-red-600">Rejected</Badge>
+      case "terminated":
+        return <Badge className="bg-red-500 hover:bg-red-600">Terminated</Badge>
       case "expired":
         return <Badge className="bg-gray-500 hover:bg-gray-600">Expired</Badge>
       default:

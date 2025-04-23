@@ -130,16 +130,16 @@ export default function AgreementPage() {
 
   const handleCreateMultisig = async () => {
     if (!agreement || !wallet.publicKey || !walletAddress || !program) return;
-  
+
     try {
       setCreateMultisigLoading(true);
       setCreateMultisigSuccess(false);
-  
+
       const franchisor = wallet.publicKey;
       const franchisee = new PublicKey(walletAddress);
       const initialFee = new anchor.BN(Math.round(parseFloat(agreement.initial_fee) * 1e9)); // Convert to lamports
       const threshold = 2;
-  
+
       // 1. Generate PDA
       const seeds = [
         anchor.utils.bytes.utf8.encode('multisig'),
@@ -147,7 +147,7 @@ export default function AgreementPage() {
         franchisee.toBuffer(),
       ];
       const [multisigPda, multisigBump] = await PublicKey.findProgramAddress(seeds, program.programId);
-  
+
       // 2. Build the instruction
       const tx = await program.methods
         .initialize(
@@ -167,35 +167,35 @@ export default function AgreementPage() {
           systemProgram: anchor.web3.SystemProgram.programId,
         })
         .transaction();
-  
+
       // 3. Get latest blockhash (includes lastValidBlockHeight)
       const latestBlockhash = await connectioncli.getLatestBlockhash();
       tx.recentBlockhash = latestBlockhash.blockhash;
       tx.feePayer = wallet.publicKey;
-  
+
       // 4. Sign the transaction
       if (!wallet.signTransaction) {
         throw new Error("Wallet does not support signing transactions");
       }
       const signedTx = await wallet.signTransaction(tx);
       const rawTransaction = signedTx.serialize();
-  
+
       // 5. Send the transaction
       const txId = await connectioncli.sendRawTransaction(rawTransaction, {
         skipPreflight: false,
         preflightCommitment: "processed"
       });
-  
+
       // 6. Confirm transaction
       const confirmation = await connectioncli.confirmTransaction({
         signature: txId,
         ...latestBlockhash
       }, "processed");
-  
+
       if (confirmation.value.err) {
         throw new Error("Transaction failed");
       }
-  
+
       // 7. Update backend DB
       const response = await fetch("/api/update-franchisee", {
         method: "POST",
@@ -206,11 +206,11 @@ export default function AgreementPage() {
           franchisee_email: email
         }),
       });
-  
+
       if (!response.ok) throw new Error("Failed to update DB");
-  
+
       setCreateMultisigSuccess(true);
-  
+
       toast("Multisig created successfully. Transaction ID: " + txId, {
         description: "You can view the transaction on Solscan.",
         action: {
@@ -218,11 +218,11 @@ export default function AgreementPage() {
           onClick: () => navigator.clipboard.writeText(txId),
         },
       });
-  
+
       setTimeout(() => {
         router.push("/profile");
       }, 2000);
-  
+
     } catch (err: any) {
       setError('Failed to create multisig: ' + err.message);
       console.error(err);
@@ -233,18 +233,18 @@ export default function AgreementPage() {
       setCreateMultisigLoading(false);
     }
   };
-  
+
 
   const handleApproveMultisig = async () => {
     if (!agreement || !wallet.publicKey || !program) return;
-  
+
     try {
       setApproveMultisigLoading(true);
       setApproveMultisigSuccess(false);
-  
+
       const franchisor = new PublicKey(agreement.franchisor);
       const franchisee = wallet.publicKey;
-  
+
       const franchisor_share = Number(agreement.franchisor_share);
       const franchisee_share = 100 - franchisor_share;
       const initial_fee = new anchor.BN(agreement.initial_fee);
@@ -252,36 +252,36 @@ export default function AgreementPage() {
       const contract_duration = new anchor.BN(agreement.contract_duration);
       const dispute_resolution = agreement.dispute_resolution.toString();
       const vault_status = "active";
-  
+
       const [multisigPda, multisigBump] = PublicKey.findProgramAddressSync(
         [Buffer.from("multisig"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-  
+
       const [vault_pda, vault_bump] = PublicKey.findProgramAddressSync(
         [Buffer.from("vaults"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-  
+
       const [agreement_pda, agreement_bump] = PublicKey.findProgramAddressSync(
         [Buffer.from("agreement"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-  
+
       const transaction = new Transaction();
-  
+
       async function getOrCreateATA(owner: PublicKey) {
         const isPDA = PublicKey.isOnCurve(owner.toBuffer()) === false;
-  
+
         const ata = await spltoken.getAssociatedTokenAddress(
           usdt_mint,
           owner,
           isPDA,
           spltoken.TOKEN_PROGRAM_ID
         );
-  
+
         const accountInfo = await connectioncli.getAccountInfo(ata);
-  
+
         if (!accountInfo) {
           transaction.add(
             spltoken.createAssociatedTokenAccountInstruction(
@@ -293,15 +293,15 @@ export default function AgreementPage() {
             )
           );
         }
-  
+
         return ata;
       }
-  
+
       // Create ATAs
       const franchiseeAta = await getOrCreateATA(franchisee);
       const franchisorAta = await getOrCreateATA(franchisor);
       const vaultAta = await getOrCreateATA(vault_pda);
-  
+
       // Build multisig instruction
       const multisigIx = await program.methods
         .multisig(
@@ -330,14 +330,14 @@ export default function AgreementPage() {
           associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
         })
         .instruction();
-  
+
       transaction.add(multisigIx);
-  
+
       // Get recent blockhash & set it
       const latestBlockhash = await connectioncli.getLatestBlockhash();
       transaction.recentBlockhash = latestBlockhash.blockhash;
       transaction.feePayer = wallet.publicKey;
-  
+
       // Sign & send
       if (!wallet.signTransaction) {
         throw new Error("Wallet does not support signing transactions");
@@ -348,22 +348,22 @@ export default function AgreementPage() {
         skipPreflight: false,
         preflightCommitment: "processed",
       });
-  
+
       // Confirm using proper blockhash + lastValidBlockHeight
       await connectioncli.confirmTransaction({
         signature: txId,
         ...latestBlockhash
       }, "processed");
-  
+
       // Update backend
       const response = await fetch("/api/update-draft-agreement", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id }),
       });
-  
+
       if (!response.ok) throw new Error("Failed to update DB");
-  
+
       setApproveMultisigSuccess(true);
       toast("Agreement approved!", {
         description: "Transaction ID: " + txId,
@@ -372,11 +372,11 @@ export default function AgreementPage() {
           onClick: () => navigator.clipboard.writeText(txId),
         },
       });
-  
+
       setTimeout(() => {
         router.push("/profile");
       }, 2000);
-  
+
     } catch (err: any) {
       setError("Failed to approve multisig: " + err.message);
       console.error(err);
@@ -387,7 +387,7 @@ export default function AgreementPage() {
       setApproveMultisigLoading(false);
     }
   };
-  
+
 
   const getToken = async () => {
     try {
@@ -436,22 +436,22 @@ export default function AgreementPage() {
 
   const terminate = async () => {
     if (!agreement || !wallet.publicKey || !program) return;
-  
+
     try {
       const transaction = new Transaction();
-  
+
       async function getOrCreateATA(owner: PublicKey) {
         const isPDA = PublicKey.isOnCurve(owner.toBuffer()) === false;
-  
+
         const ata = await spltoken.getAssociatedTokenAddress(
           usdt_mint,
           owner,
           isPDA,
           spltoken.TOKEN_PROGRAM_ID
         );
-  
+
         const accountInfo = await connectioncli.getAccountInfo(ata);
-  
+
         if (!accountInfo) {
           console.log(`Creating ATA for: ${owner.toBase58()}`);
           transaction.add(
@@ -464,76 +464,51 @@ export default function AgreementPage() {
             )
           );
         }
-  
+
         return ata;
       }
-  
+
       const franchisor = new PublicKey(agreement.franchisor);
       const franchisee = new PublicKey(agreement.franchisee);
-      console.log(franchisee.toBase58(),franchisor.toBase58());
-  
-      const [vault_pda] = PublicKey.findProgramAddressSync(
+      console.log(franchisee.toBase58(), franchisor.toBase58());
+
+      const [vault_pda, vault_bump] = PublicKey.findProgramAddressSync(
         [Buffer.from("vaults"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-      console.log(vault_pda.toBase58())
-  
-      const [agreement_pda] = PublicKey.findProgramAddressSync(
-        [
-          Buffer.from("agreement"),
-          franchisor.toBuffer(), 
-          franchisee.toBuffer()
-        ],
+
+      const [agreement_pda, agreement_bump] = PublicKey.findProgramAddressSync(
+        [Buffer.from("agreement"), franchisor.toBuffer(), franchisee.toBuffer()],
         program.programId
       );
-      console.log(agreement_pda.toBase58())
 
       // const agreementAccount = await program.account.agreement.fetch(agreement_pda);
       // console.log("Agreement state:", agreementAccount);
 
 
-  
+
       const franchiseeAta = await getOrCreateATA(franchisee);
       const vaultAta = await getOrCreateATA(vault_pda);
-  
+
       const terminateIx = await program.methods
         .agreement()
         .accounts({
           signer: wallet.publicKey,
-          franchisor:franchisor,
-          franchisee:franchisee,              
-          agreement: agreement_pda,              
-          vault: vault_pda,                      
-          vaultAta: vaultAta,                    
-          franchiseeAta: franchiseeAta,          
-          usdtMint: usdt_mint,                   
+          franchisor: franchisor,
+          franchisee: franchisee,
+          agreement: agreement_pda,
+          vault: vault_pda,
+          vaultAta: vaultAta,
+          franchiseeAta: franchiseeAta,
+          usdtMint: usdt_mint,
           systemProgram: anchor.web3.SystemProgram.programId,
           tokenProgram: anchor.utils.token.TOKEN_PROGRAM_ID,
           associatedTokenProgram: anchor.utils.token.ASSOCIATED_PROGRAM_ID,
         })
         .instruction();
-  
-      transaction.add(terminateIx);
-  
-      const { blockhash } = await connectioncli.getLatestBlockhash();
-      transaction.recentBlockhash = blockhash;
-      transaction.feePayer = wallet.publicKey;
-  
-      if (!wallet.signTransaction) {
-        throw new Error("Wallet does not support signing transactions");
-      }
-  
-      const signedTx = await wallet.signTransaction(transaction);
-      const txId = await connectioncli.sendRawTransaction(signedTx.serialize());
-  
-      await connectioncli.confirmTransaction({
-        signature: txId,
-        blockhash,
-        lastValidBlockHeight: (await connectioncli.getBlockHeight()) + 150,
-      });
-  
-      console.log("Transaction Sent:", txId);
-  
+
+
+
       const response = await fetch("/api/terminate-agreement", {
         method: "POST",
         headers: {
@@ -542,16 +517,16 @@ export default function AgreementPage() {
         body: JSON.stringify({
           id,
           wallet: wallet.publicKey.toBase58(),
-          txid: txId,
         }),
       });
-  
+
       const result = await response.json();
-  
+
       if (!response.ok) {
         throw new Error(result.error || "Something went wrong");
+        router.push("/profile");
       }
-  
+
       toast("Agreement terminated!", {
         description: result.message,
         action: {
@@ -566,7 +541,7 @@ export default function AgreementPage() {
       });
     }
   };
-  
+
 
 
 
@@ -576,8 +551,8 @@ export default function AgreementPage() {
         return <Badge className="bg-green-500 hover:bg-green-600">Active</Badge>
       case "pending":
         return <Badge className="bg-yellow-500 hover:bg-yellow-600">Pending</Badge>
-      case "rejected":
-        return <Badge className="bg-red-500 hover:bg-red-600">Rejected</Badge>
+      case "terminated":
+        return <Badge className="bg-red-500 hover:bg-red-600">Terminated</Badge>
       case "expired":
         return <Badge className="bg-gray-500 hover:bg-gray-600">Expired</Badge>
       default:
