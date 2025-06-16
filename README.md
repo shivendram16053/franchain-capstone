@@ -3,7 +3,8 @@
 ## 🚀 Introduction
 Franchain is a blockchain-based solution designed to bring **trust, transparency, and timely payments** to the franchise business model. By storing agreements **on-chain** and automating payments via smart contracts, Franchain ensures that both franchisors and franchisees receive their fair share without disputes or delays.
 
-Deployed Link : [view on explorer](https://explorer.solana.com/address/FXLMBJZHS2ZQNuYQgACjci1XuDFZTEP7JHB21Ft3Y61J?cluster=devnet)
+Website Link :[franchain.xyz](https://franchain.xyz)
+Deployed Link (Contract) : [view on explorer](https://explorer.solana.com/address/FXLMBJZHS2ZQNuYQgACjci1XuDFZTEP7JHB21Ft3Y61J?cluster=devnet)
 
 <br/>
 
